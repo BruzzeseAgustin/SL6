@@ -1,8 +1,46 @@
+# We have two db. Dues db : Onsite and the Data transfers. Psql for the Onsite and Mysql Data Transfers
+
 yum install -y sudo \
-	wget \	
+	wget \
+	nano \
 	postgresql-server \
 	postgresql-contrib \
 	postgresql-jdbc* \
+	libaio-0.3.107-10.el6.x86_64
+
+# Preconfiguration setup
+groupadd psql
+useradd -r -g mysql -s /bin/false psql
+
+# wget https://dev.mysql.com/get/mysql57-community-release-el7-9.noarch.rpm
+wget https://dev.mysql.com/get/mysql80-community-release-el6-3.noarch.rpm
+# rpm -ivh mysql57-community-release-el7-9.noarch.rpm
+rpm -ivh mysql80-community-release-el6-3.noarch.rpm
+
+yum install -y --skip-broken libc.so.6 \
+	systemd \
+	libstdc++.so.6 \
+	libsasl2.so.3 \
+	mysql-community-client-5.7.34-1.el7.x86_64 \
+	mysql-community-common-5.7.34-1.el7.x86_64 \
+	mysql-community-libs-5.7.34-1.el7.x86_64 \
+	mysql-community-server-5.7.34-1.el7.x86_64 \
+	numactl-2.0.9-2.el6.x86_64 \
+	mysql-server
+
+# Preconfiguration setup
+groupadd mysql
+useradd -r -g mysql -s /bin/false mysql
+
+yum repolist enabled | grep "mysql.*-community.*"
+
+echo "" | sudo service mysqld start
+
+# the output should look something like this:
+# Initializing MySQL database:  
+#                                                            [  OK  ]
+# Starting mysqld:                                           [  OK  ]
+
 
 # 1- Download the Source Code
 
@@ -22,9 +60,9 @@ cd Python-3.8.4
 ./configure --enable-optimizations --with-ensurepip=install
 make -j 8
 make altinstall
-ln -fs /usr/local/bin/python3.8 /usr/bin/python
-echo "alias python="/usr/local/bin/python3.8"" >> ~/.bashrc
-source ~/.bashrc
+# ln -fs /usr/local/bin/python3.8 /usr/bin/python
+# echo "alias python="/usr/local/bin/python3.8"" >> ~/.bashrc
+# source ~/.bashrc
 
 # 4- Verify Your Installation
 python3.8 --version
