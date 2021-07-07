@@ -1,0 +1,43 @@
+yum install -y sudo \
+	wget \	
+	postgresql-server \
+	postgresql-contrib \
+	postgresql-jdbc* \
+
+# 1- Download the Source Code
+
+wget https://www.python.org/ftp/python/3.8.4/Python-3.8.4.tgz
+
+# 2- Next, make sure you have all of the build requirements installed:
+#  For yum-based systems (like CentOS)
+sudo yum -y groupinstall "Development Tools"
+sudo yum -y install gcc openssl-devel bzip2-devel libffi-devel
+
+# 3- Build Python
+
+# Once you have the prerequisites and the TAR file, you can unpack the source into a directory. Note that the following command will create a new directory called Python-3.8.3 under the one you’re in:
+
+tar xvf Python-3.8.4.tgz
+cd Python-3.8.4
+./configure --enable-optimizations --with-ensurepip=install
+make -j 8
+make altinstall
+ln -fs /usr/local/bin/python3.8 /usr/bin/python
+echo "alias python="/usr/local/bin/python3.8"" >> ~/.bashrc
+source ~/.bashrc
+
+# 4- Verify Your Installation
+python3.8 --version
+
+# 5- Download Rucio clients
+
+wget https://files.pythonhosted.org/packages/71/7c/bd13e642b02c0ee765b1c3c53ca1bd517893605d7b3192cc896cedd8e6b3/rucio-clients-1.23.11.tar.gz#sha256=e9845aeefaa93d8ab59f0ea0c41c62a081e367b4bda914c864797827fc79a515
+tar -xvf rucio-clients-1.23.11.tar.gz
+cd rucio-clients-1.23.11
+python3.8 setup.py install
+
+wget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.7.tgz
+tar -xvf docker-20.10.7.tgz 
+cp docker/* /usr/bin/
+sudo dockerd &
+yum install -y kernel kernel-tools kernel-tools-libs
