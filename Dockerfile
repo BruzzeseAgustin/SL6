@@ -14,5 +14,25 @@ VOLUME [ "/sys/fs/cgroup" ]
 # CMD ["/bin/bash"]
 ADD config/ /
 ADD yum.repos/ /etc/yum.repos.d/
+ADD psql-connector.py / 
+
+RUN yum install -y sudo \
+	wget \
+	mlocate \
+	postgresql-server \
+	postgresql-contrib \
+	postgresql-jdbc* \
+	kernel \ 
+	kernel-tools \ 
+	kernel-tools-libs \
+	python-devel \
+	postgresql-devel \
+	python-dev \
+	python-pybabel \
+	python-psycopg2 \
+	mysql-server \
+	MySQL-python \
+	tree
+
 # start sl6
 CMD bash ./docker-entrypoint.sh
