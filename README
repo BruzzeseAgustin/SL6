@@ -11,6 +11,10 @@ yum install -y sudo \
 # Preconfiguration setup
 groupadd psql
 useradd -r -g mysql -s /bin/false psql
+su postgres
+echo "CREATE ROLE multivac LOGIN;" | psql -U postgres
+psql -U postgres -f psql-data/multivac.sql
+exit 
 
 # wget https://dev.mysql.com/get/mysql57-community-release-el7-9.noarch.rpm
 wget https://dev.mysql.com/get/mysql80-community-release-el6-3.noarch.rpm
@@ -32,15 +36,56 @@ yum install -y --skip-broken libc.so.6 \
 groupadd mysql
 useradd -r -g mysql -s /bin/false mysql
 
+groupadd globus
+useradd -r -g globus -s /bin/false globus
+
+echo "" | sudo service mysqld start
+echo "" | sudo service mysqld stop
+mysqld_safe --skip-grant-tables --skip-networking &
+
+su mysql
+echo "CREATE DATABASE magic;" | mysql -u root
+mysql -u root -p magic < /mysql-data/TRANSFER.sql 
+mysql -u root -p magic < /mysql-data/STORAGE.sql 
+
+exit
+
 yum repolist enabled | grep "mysql.*-community.*"
 
 echo "" | sudo service mysqld start
-
+mysqld_safe --skip-grant-tables --skip-syslog --skip-networking &
 # the output should look something like this:
 # Initializing MySQL database:  
 #                                                            [  OK  ]
 # Starting mysqld:                                           [  OK  ]
 
+# 0.5 install gridftp 
+# wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+# yum install -y epel-release-latest-7.noarch.rpm
+# yum install -y https://downloads.globus.org/toolkit/gt6/stable/installers/repo/rpm/globus-toolkit-repo-latest.noarch.rpm
+
+groupadd transfer
+useradd -r -g transfer -s /bin/false transfer
+
+yum install -y libudt* apr* cronie* crontab 
+
+yum install -y epel-release
+yum install -y python34 
+
+yum install -y globus-gridftp-server voms-clients3 voms-clients-java 
+
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+yum install -y epel-release-latest-7.noarch.rpm
+yum install -y https://downloads.globus.org/toolkit/gt6/stable/installers/repo/rpm/globus-toolkit-repo-latest.noarch.rpm
+yum install -y globus-connect-server
+
+wget http://www.mcs.anl.gov/~mlink/xsede/gridftp-server-test-2.tar.gz
+tar xfz gridftp-server-test-2.tar.gz
+cd gridftp-server-test
+cd /gridftpd/SL6
+./install.sh
+
+service gridftpd start 
 
 # 1- Download the Source Code
 
@@ -79,3 +124,5 @@ tar -xvf docker-20.10.7.tgz
 cp docker/* /usr/bin/
 sudo dockerd &
 yum install -y kernel kernel-tools kernel-tools-libs
+
+
