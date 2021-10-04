@@ -53,6 +53,8 @@ echo "Finished restore of the transfer mysql db" >> /var/log/mysql-add-transfer.
 su mysql -c "mysql -u root magic < /mysql-data/STORAGE.sql" 
 echo "Finished restore of the storage mysql db" >> /var/log/mysql-add-storage.log
 
+./run_script.sh
+
 # keep container running
 tail -f /dev/null
 
