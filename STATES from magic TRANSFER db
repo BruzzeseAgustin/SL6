@@ -1,0 +1,81 @@
+mysql> SELECT DISTINCT(TRANSFER_STATUS) FROM TRANSFER;
++-----------------+
+| TRANSFER_STATUS |
++-----------------+
+| PENDING         |
+| DONE            |
++-----------------+
+
+
+mysql> SELECT FILE_PATH FROM STORAGE limit 1;
++----------------------------------------------------------------------------------+
+| FILE_PATH                                                                        |
++----------------------------------------------------------------------------------+
+| /data/M1/DAQ/RAW/2011_05_23/20110523_M1_05014768.004_D_4C+49.22-W0.40+180.raw.gz |
++----------------------------------------------------------------------------------+
+
+
+SELECT * FROM STORAGE WHERE FILE_PATH LIKE '%/RAW/2012_09_22/20120922_M1_01500881.001_B_Dummy.raw%';
+
+
+
+mysql> DESCRIBE STORAGE;
++-------------+---------------------+------+-----+---------+----------------+
+| Field       | Type                | Null | Key | Default | Extra          |
++-------------+---------------------+------+-----+---------+----------------+
+| ID          | int(11)             | NO   | PRI | NULL    | auto_increment |
+| ID_PARENT   | int(11)             | YES  |     | NULL    |                |
+| DAQ_ID      | int(11)             | YES  | MUL | NULL    |                |
+| REPORT_ID   | int(11)             | YES  | MUL | NULL    |                |
+| SEQUENCE_ID | int(11)             | YES  | MUL | NULL    |                |
+| TELESCOPE   | char(2)             | YES  |     | NULL    |                |
+| NIGHT       | date                | YES  | MUL | NULL    |                |
+| HOSTNAME    | varchar(255)        | YES  |     | NULL    |                |
+| FILE_PATH   | varchar(255)        | YES  | UNI | NULL    |                |
+| FILE_TYPE   | varchar(255)        | YES  |     | NULL    |                |
+| SIZE        | bigint(20) unsigned | YES  |     | NULL    |                |
+| MD5SUM      | char(32)            | YES  | UNI | NULL    |                |
+| M_TIME      | timestamp           | YES  |     | NULL    |                |
+| DELETED     | timestamp           | YES  |     | NULL    |                |
++-------------+---------------------+------+-----+---------+----------------+
+
+
+mysql> DESCRIBE TRANSFER;
++------------------+--------------+------+-----+---------+----------------+
+| Field            | Type         | Null | Key | Default | Extra          |
++------------------+--------------+------+-----+---------+----------------+
+| ID               | int(11)      | NO   | PRI | NULL    | auto_increment |
+| STORAGE_ID       | int(11)      | YES  | MUL | NULL    |                |
+| DATE_DISCOVERED  | timestamp    | YES  |     | NULL    |                |
+| TRANSFER_STATUS  | varchar(255) | YES  |     | NULL    |                |
+| DATE_TRANSFERRED | timestamp    | YES  |     | NULL    |                |
+| ADLER32_CHECKSUM | char(8)      | YES  |     | NULL    |                |
++------------------+--------------+------+-----+---------+----------------+
+6 rows in set (0.00 sec)
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> use magic;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> SELECT ID FROM STORAGE where FILE_PATH LIKE '%20211003_M1_64558190.001_B_Dummy.raw';
++---------+
+| ID      |
++---------+
+| 6853428 |
++---------+
+1 row in set (1.96 sec)
+
+mysql> SELECT * FROM TRANSFER where STORAGE_ID LIKE '6853428';
++----------+------------+---------------------+-----------------+------------------+------------------+
+| ID       | STORAGE_ID | DATE_DISCOVERED     | TRANSFER_STATUS | DATE_TRANSFERRED | ADLER32_CHECKSUM |
++----------+------------+---------------------+-----------------+------------------+------------------+
+| 10743863 |    6853428 | 2021-10-03 21:40:41 | PENDING         |             NULL | NULL             |
+| 10743867 |    6853428 | 2021-10-03 12:54:21 | DONE            |             NULL | NULL             |
++----------+------------+---------------------+-----------------+------------------+------------------+
+2 rows in set (1.39 sec)
+
+mysql> 
+

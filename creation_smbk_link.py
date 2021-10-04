@@ -1,4 +1,6 @@
-import os,random,re,datetime,logging,errno
+import os,random,re,datetime,logging,errno,sys
+import json, time, mysql.connector
+from mysql.connector import errorcode
 
 
 rootdir = '/data/M1'
@@ -45,25 +47,6 @@ def look_for_run(fileName) :
     except : 
         pass
 
-##################################################
-
-# Get UTC time
-class simple_utc(datetime.tzinfo):
-    def tzname(self,**kwargs):
-        return "UTC"
-    def utcoffset(self, dt):
-        return timedelta(0)
-    
-def get_UTC_time() :
-    dt_string = datetime.utcnow().replace(tzinfo=simple_utc()).isoformat()
-    dt_string = str(parser.isoparse(dt_string))
-    return(dt_string)
-
-# Merge dictionary 
-def Merge(dict1, dict2): 
-    res = dict1.copy()   # start with x's keys and values
-    res.update(dict2)    # modifies z with y's keys and values & returns None
-    return(res)
 
 # Generate random run
 def generate_random() :
@@ -132,22 +115,196 @@ def construct_file(path):
         pass
     return(path)
 
+#################################################
+
+def connect(config, sql_query, values):
+    print("Going to describe Table ")    
+    try:
+        cnx = mysql.connector.connect(**config)
+        cursor = cnx.cursor()
+        cursor.execute("SHOW FULL TABLES;")
+        for table in cursor:
+            print(table)
+
+        print()
+        '''
+        add_entry = ("INSERT INTO STORAGE "
+           "(FILE_PATH) "
+           "VALUES (%s)")
+        val = (symblink_file,)
+        '''
+        print(sql_query, values)
+        cursor.execute(sql_query, values)
+        cnx.commit()
+
+        print(cursor.rowcount, "record inserted.")
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Something is wrong with your user name or password")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("Database does not exist")
+        else:
+            print(err)
+    else:
+        if cnx.is_connected():
+            cnx.close()
+            cursor.close()
+            print("MySQL connection is closed")
+            
 ###################################################
 
-for root, subdirectories, files in os.walk(rootdir):
 
-    # for subdirectory in subdirectories:
+def check_transfers_rucio(input_file):
+    if os.path.isfile(input_file):
+        file = open(input_file, "r+")
+        lines = file.readlines()
+        
+        count = []
+        for line in lines:
+            print("Line{}: {}".format(count, line.replace("\n", "").strip()))     
+            parts = line.split() # split line into parts
+            if len(parts) > 1:   # if at least 2 parts/columns
+                file_name = parts[0]
+                date_to_be_change = parts[1]
+                print(file_name, date_to_be_change)
+                datetime_object = datetime.datetime.strptime(date_to_be_change, '%Y-%m-%dT%H:%M:%S.%fZ')
+                datetime_object = datetime.datetime.strftime(datetime_object, '%Y-%m-%d %H:%M:%S')
+                print(file_name, datetime_object)
 
-    #     print(os.path.join(root, subdirectory))
+def update_file_status(config, sql_query, values):
+    print("Going to update Table ")    
+    try:
+        cnx = mysql.connector.connect(**config)
+        cursor = cnx.cursor()
+        
+        print(sql_query, values)
+        cursor.execute(sql_query, values)
+        cnx.commit()
+ 
+        print(cursor.rowcount, "record inserted.")
 
-    for file in files:
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Something is wrong with your user name or password")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("Database does not exist")
+        else:
+            print(err)
+    else:
+        if cnx.is_connected():
+            cnx.close()
+            cursor.close()
+            print("MySQL connection is closed")
+            return(True)
 
-        import time
-        from datetime import date 
 
-        path = (os.path.join(root, file))
+def make_file_transfer(list_lfn, output_file=r'sample.txt'):
+    
+    print('writing output file at ' + output_file)
+    # Open a file with access and read mode 'a+'
+    file_object = open(output_file, 'a')
+    # Append 'hello' at the end of file
+    
+    for lfn in list_lfn:
+        print(lfn)        
+        file_object.write(lfn+'\n')
+        # Close the file
+    
+    file_object.close()
+                        
+###################################################
+
+if __name__ == '__main__':
+
+    print(rootdir)
+
+
+    config = {
+        'user': 'root',
+        'host': 'localhost',
+        'password': '',
+        'database': 'magic',
+        'raise_on_warnings': True
+    }
+    
+    for idx, arg in enumerate(sys.argv):
+        #print("Argument #{} is {}".format(idx, arg))
        
-        print('this is the raw path ',path)
+        if arg == "symb":
+            for root, subdirectories, files in os.walk(rootdir):
 
-        make_symb_link(path, d_file=r'/data/Server-test/data')
+                for file in files:
+                    print(file)
+                    import time
+                    from datetime import date 
 
+                    path = (os.path.join(root, file))
+
+                    print('this is the raw path ',path)
+
+                    symblink_file = make_symb_link(path, d_file=r'/data/Other/rucio_tmp/Server-test/data')
+
+                    ###################################
+                    val = (symblink_file,)        
+                    add_entry = ("INSERT INTO STORAGE "
+                       "(FILE_PATH) "
+                       "VALUES (%s)")
+
+                    connect(config, add_entry, val)
+
+                    ###################################
+                    val = (symblink_file, datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S'), "PENDING")         
+                    add_entry = ("INSERT INTO TRANSFER (STORAGE_ID, DATE_DISCOVERED, TRANSFER_STATUS) VALUES " 
+                                 "((SELECT ID from STORAGE where FILE_PATH LIKE %s) "
+                                 ", %s, %s);")
+
+                    connect(config, add_entry, val)  
+
+        elif arg == "update" :   
+
+            add_entry = ("INSERT INTO TRANSFER (STORAGE_ID, DATE_DISCOVERED, TRANSFER_STATUS) VALUES " 
+                "((SELECT ID from STORAGE where FILE_PATH LIKE %s) "
+                ", %s, %s);")
+
+            relevant_path = '/data/'
+            match_name = r'Transfer_done-'
+            files = [f for f in os.listdir(relevant_path) if re.match(match_name, f)]
+            for n_file in files: 
+                print(file)
+                n_file = os.path.join(relevant_path, n_file)
+                print(n_file)
+                if os.path.getsize(n_file) == 0: 
+                    print(n_file)
+                    os.remove(n_file)  
+                else:
+                    file = open(n_file, "r+")
+                    lines = file.readlines()
+                    file.close()
+        
+                    count = 0
+                    new_file = open(n_file, "w+")
+                    for line in lines:
+                        # print("Line{}: {}".format(count, line.replace("\n", "").strip()))     
+                        parts = line.split() # split line into parts
+                        if len(parts) > 1:   # if at least 2 parts/columns
+                            file_name = "%"+os.path.basename(parts[0])
+                            date_to_be_change = parts[1]
+                            datetime_object = datetime.datetime.strptime(date_to_be_change, '%Y-%m-%dT%H:%M:%S.%fZ')
+                            datetime_object = datetime.datetime.strftime(datetime_object, '%Y-%m-%d %H:%M:%S')
+                            # print(file_name, datetime_object)
+
+                            val = (file_name, datetime_object, "DONE")
+                            print(val)
+                            response = update_file_status(config, add_entry, val)    
+                            print(response)
+                            if response == True :
+                                print(count)
+                                del lines[count]
+                        count += 1
+                    lines = [s.rstrip() for s in lines] # remove \r
+                    lines = list(filter(None, lines)) # remove empty 
+                    # print(lines, file, len(lines))
+                    if len(lines) >= 1 :
+                        make_file_transfer(lines, n_file) 
+
+                    new_file.close()
