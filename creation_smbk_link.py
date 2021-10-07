@@ -153,7 +153,37 @@ def connect(config, sql_query, values):
             
 ###################################################
 
+def check_file_entry(config, sql_query, values):
+    print("Going to describe Table ")    
+    try:
+        cnx = mysql.connector.connect(**config)
+        cursor = cnx.cursor()
+        cursor.execute("SHOW FULL TABLES;")
+        for table in cursor:
+            print(table)
 
+        print()
+
+        print(sql_query, values)
+        cursor.execute(sql_query, values)
+        if len(cursor.fetchall()) >= 1:
+            return(True)
+        else :
+            return(False)
+        
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Something is wrong with your user name or password")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("Database does not exist")
+        else:
+            print(err)
+    else:
+        if cnx.is_connected():
+            cnx.close()
+            cursor.close()
+            print("MySQL connection is closed")
+            
 def check_transfers_rucio(input_file):
     if os.path.isfile(input_file):
         file = open(input_file, "r+")
@@ -265,6 +295,8 @@ if __name__ == '__main__':
             add_entry = ("INSERT INTO TRANSFER (STORAGE_ID, DATE_DISCOVERED, TRANSFER_STATUS) VALUES " 
                 "((SELECT ID from STORAGE where FILE_PATH LIKE %s) "
                 ", %s, %s);")
+            
+            check_entry = ("SELECT * FROM TRANSFER WHERE STORAGE_ID LIKE (SELECT ID FROM STORAGE where FILE_PATH LIKE %s) AND TRANSFER_STATUS LIKE %s;")
 
             relevant_path = '/data/'
             match_name = r'Transfer_done-'
@@ -283,7 +315,9 @@ if __name__ == '__main__':
         
                     count = 0
                     new_file = open(n_file, "w+")
+                    idx_to_delete = []
                     for line in lines:
+                        print(count, '-', len(lines)-1 )
                         # print("Line{}: {}".format(count, line.replace("\n", "").strip()))     
                         parts = line.split() # split line into parts
                         if len(parts) > 1:   # if at least 2 parts/columns
@@ -291,16 +325,27 @@ if __name__ == '__main__':
                             date_to_be_change = parts[1]
                             datetime_object = datetime.datetime.strptime(date_to_be_change, '%Y-%m-%dT%H:%M:%S.%fZ')
                             datetime_object = datetime.datetime.strftime(datetime_object, '%Y-%m-%d %H:%M:%S')
-                            # print(file_name, datetime_object)
 
-                            val = (file_name, datetime_object, "DONE")
-                            print(val)
-                            response = update_file_status(config, add_entry, val)    
-                            print(response)
-                            if response == True :
-                                print(count)
-                                del lines[count]
+                            val = (file_name, "DONE")
+                            check = check_file_entry(config, check_entry, val)    
+                            print(check)
+                            
+                            if check == False:   
+                                val = (file_name, datetime_object, "DONE")
+                                print(val)
+                                response = update_file_status(config, add_entry, val)    
+                                print(response)
+                                if response == True :
+                                    print('going to delete index: ',count)
+                                    idx_to_delete.append(count)
+                            elif check == True :
+                                print('going to delete index: ',count)
+                                idx_to_delete.append(count)
+                            
                         count += 1
+                    for idx in sorted(idx_to_delete, reverse=True):
+                        del lines[idx] 
+                        
                     lines = [s.rstrip() for s in lines] # remove \r
                     lines = list(filter(None, lines)) # remove empty 
                     # print(lines, file, len(lines))
